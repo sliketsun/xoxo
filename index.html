@@ -9,8 +9,11 @@
     margin: 0;
     padding: 0;
     background: #eef2f6;
-    display:flex;
-    justify-content:center;
+    width: 100%;
+    min-height: 100vh;
+  }
+  body {
+    display: block;
   }
   #app {
     --paper: #fdfcf7;
@@ -21,13 +24,14 @@
     --accent-o: #3a6fb0;
     font-family: 'Segoe UI', 'Comic Sans MS', sans-serif;
     color: var(--ink);
-    max-width: 620px;
     width: 100%;
+    max-width: 620px;
     margin: 0 auto;
     padding: 16px;
     box-sizing: border-box;
   }
   #app * { box-sizing: border-box; }
+  .paper { width: 100%; }
   .paper {
     background: var(--paper);
     border-radius: 10px;
@@ -60,7 +64,7 @@
     display: grid;
     grid-template-columns: repeat(15, 1fr);
     gap: 2px;
-    max-width: 100%;
+    width: 100%;
     margin: 0 auto;
   }
   .cell {
@@ -77,6 +81,26 @@
   .footer-row { display:flex; justify-content: space-between; align-items:center; margin-top: 14px; font-size: 13px; }
   .small-btn { padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-size: 13px; }
   .room-tag { font-size: 12px; color: #6b7280; text-align:center; margin-top:6px; }
+
+  /* iPad / tablet */
+  @media (max-width: 768px) {
+    #app { padding: 12px; }
+    .paper { padding: 16px; }
+    .cell { font-size: 12px; }
+  }
+  /* Điện thoại */
+  @media (max-width: 480px) {
+    #app { padding: 8px; }
+    .paper { padding: 10px; border-radius: 8px; }
+    .board { gap: 1px; }
+    .cell { font-size: 9px; border-radius: 2px; }
+    h2 { font-size: 17px; }
+    .sub, .room-tag { font-size: 11px; }
+  }
+  /* Điện thoại rất nhỏ */
+  @media (max-width: 360px) {
+    .cell { font-size: 8px; }
+  }
 </style>
 </head>
 <body>
@@ -252,7 +276,7 @@ const db = firebase.database();
             <button class="symbol-btn o ${state.mySymbol==='O'?'selected':''}" id="pickO">O</button>
           </div>
           <button class="primary-btn" id="joinBtn" ${(!state.mySymbol)?'disabled':''}>Vào phòng chơi</button>
-          <div class="room-tag">Nhớ chọn khác quân với trâm nha 😉</div>
+          <div class="room-tag">Nhớ chọn khác quân với trâm 😉</div>
         </div>
       `;
       document.getElementById('roomInput').oninput = (e)=>{ state.room = e.target.value; };
