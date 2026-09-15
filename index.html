@@ -127,7 +127,7 @@ const db = firebase.database();
   let roomRef = null;
 
   function freshGame(){
-    return { board: Array(BOARD_SIZE*BOARD_SIZE).fill(null), turn: 'X', winner: null, winLine: [] };
+    return { board: JSON.stringify(Array(BOARD_SIZE*BOARD_SIZE).fill(null)), turn: 'X', winner: null, winLine: [] };
   }
 
   function checkWinner(board){
@@ -158,10 +158,14 @@ const db = firebase.database();
         roomRef.set(freshGame());
         return;
       }
-      state.board = data.board || Array(BOARD_SIZE*BOARD_SIZE).fill(null);
+      try {
+        state.board = data.board ? JSON.parse(data.board) : Array(BOARD_SIZE*BOARD_SIZE).fill(null);
+      } catch(e) {
+        state.board = Array(BOARD_SIZE*BOARD_SIZE).fill(null);
+      }
       state.turn = data.turn || 'X';
       state.winner = data.winner || null;
-      state.winLine = data.winLine || [];
+      state.winLine = Array.isArray(data.winLine) ? data.winLine : [];
       render();
     });
   }
@@ -174,7 +178,7 @@ const db = firebase.database();
     newBoard[idx] = state.mySymbol;
     const result = checkWinner(newBoard);
     roomRef.set({
-      board: newBoard,
+      board: JSON.stringify(newBoard),
       turn: state.mySymbol === 'X' ? 'O' : 'X',
       winner: result ? result.winner : null,
       winLine: result ? result.line : []
