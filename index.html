@@ -71,6 +71,8 @@
   .cell.x { color: var(--accent-x); }
   .cell.o { color: var(--accent-o); }
   .cell.win { background: #fff6c9; }
+  .cell.last-move { box-shadow: inset 0 0 0 2px #f5a623; background: #fff8ec; }
+  .cell.win.last-move { box-shadow: inset 0 0 0 2px #f5a623; }
   .cell:hover:not(.filled) { background: #f1f5f9; }
   .footer-row { display:flex; justify-content: space-between; align-items:center; margin-top: 14px; font-size: 13px; }
   .small-btn { padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-size: 13px; }
@@ -110,12 +112,43 @@ const db = firebase.database();
     board: Array(BOARD_SIZE*BOARD_SIZE).fill(null),
     turn: 'X',
     winner: null,
-    winLine: []
+    winLine: [],
+    lastMove: null
   };
   let roomRef = null;
+  let prevLastMove = undefined;
+  let prevWinner = undefined;
+
+  function playBeep(freq, duration, type){
+    try {
+      if (!playBeep.ctx) {
+        playBeep.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      const ctx = playBeep.ctx;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + duration);
+    } catch(e) { /* audio not available, ignore */ }
+  }
+
+  function playMoveSound(symbol){
+    playBeep(symbol === 'X' ? 520 : 380, 0.1, 'sine');
+  }
+
+  function playWinSound(){
+    playBeep(660, 0.12, 'triangle');
+    setTimeout(()=>playBeep(880, 0.14, 'triangle'), 120);
+    setTimeout(()=>playBeep(1050, 0.2, 'triangle'), 260);
+  }
 
   function freshGame(){
-    return { board: JSON.stringify(Array(BOARD_SIZE*BOARD_SIZE).fill(null)), turn: 'X', winner: null, winLine: [] };
+    return { board: JSON.stringify(Array(BOARD_SIZE*BOARD_SIZE).fill(null)), turn: 'X', winner: null, winLine: [], lastMove: null };
   }
 
   function checkWinner(board){
@@ -139,6 +172,8 @@ const db = firebase.database();
 
   function subscribeRoom(room){
     if (roomRef) roomRef.off();
+    prevLastMove = undefined;
+    prevWinner = undefined;
     roomRef = db.ref('caro15x15/' + room.trim().toLowerCase());
     roomRef.on('value', (snap) => {
       const data = snap.val();
@@ -154,6 +189,18 @@ const db = firebase.database();
       state.turn = data.turn || 'X';
       state.winner = data.winner || null;
       state.winLine = Array.isArray(data.winLine) ? data.winLine : [];
+      state.lastMove = (typeof data.lastMove === 'number') ? data.lastMove : null;
+
+      if (prevLastMove !== undefined && state.lastMove !== null && state.lastMove !== prevLastMove) {
+        const movedSymbol = state.board[state.lastMove];
+        if (movedSymbol) playMoveSound(movedSymbol);
+      }
+      if (prevWinner !== undefined && !prevWinner && state.winner) {
+        playWinSound();
+      }
+      prevLastMove = state.lastMove;
+      prevWinner = state.winner;
+
       render();
     });
   }
@@ -169,7 +216,8 @@ const db = firebase.database();
       board: JSON.stringify(newBoard),
       turn: state.mySymbol === 'X' ? 'O' : 'X',
       winner: result ? result.winner : null,
-      winLine: result ? result.line : []
+      winLine: result ? result.line : [],
+      lastMove: idx
     });
   }
 
@@ -221,7 +269,8 @@ const db = firebase.database();
 
     const cellsHtml = state.board.map((v, i) => {
       const isWin = state.winLine.includes(i);
-      return `<div class="cell ${v ? v.toLowerCase() : ''} ${v?'filled':''} ${isWin?'win':''}" data-idx="${i}">${v || ''}</div>`;
+      const isLast = state.lastMove === i;
+      return `<div class="cell ${v ? v.toLowerCase() : ''} ${v?'filled':''} ${isWin?'win':''} ${isLast?'last-move':''}" data-idx="${i}">${v || ''}</div>`;
     }).join('');
 
     app.innerHTML = `
