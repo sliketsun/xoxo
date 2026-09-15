@@ -1,0 +1,334 @@
+<div id="app"></div>
+<style>
+  #app {
+    --paper: #fdfcf7;
+    --line-blue: #a9c4e0;
+    --line-red: #e39a9a;
+    --ink: #2b3a55;
+    --accent-x: #d9534f;
+    --accent-o: #3a6fb0;
+    font-family: 'Segoe UI', 'Comic Sans MS', sans-serif;
+    color: var(--ink);
+    max-width: 620px;
+    margin: 0 auto;
+    padding: 16px;
+    box-sizing: border-box;
+  }
+  #app * { box-sizing: border-box; }
+  .paper {
+    background:
+      repeating-linear-gradient(var(--paper), var(--paper) 15px, var(--line-blue) 16px),
+      repeating-linear-gradient(90deg, var(--paper), var(--paper) 15px, var(--line-blue) 16px),
+      var(--paper);
+    border-radius: 10px;
+    padding: 20px 20px 20px 30px;
+    position: relative;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+    border: 1px solid #e5ded0;
+  }
+  .paper::before {
+    content: "";
+    position: absolute;
+    left: 22px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--line-red);
+  }
+  h2 {
+    margin: 0 0 4px 0;
+    font-size: 20px;
+    text-align: center;
+  }
+  .sub {
+    text-align: center;
+    font-size: 13px;
+    color: #6b7280;
+    margin-bottom: 14px;
+  }
+  label { font-size: 13px; display:block; margin: 8px 0 4px; }
+  input[type=text] {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    font-size: 15px;
+  }
+  .row { display:flex; gap: 8px; }
+  .symbol-btn {
+    flex:1;
+    padding: 10px;
+    border-radius: 8px;
+    border: 2px solid #cbd5e1;
+    background: white;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  .symbol-btn.selected.x { border-color: var(--accent-x); color: var(--accent-x); background:#fdeeee; }
+  .symbol-btn.selected.o { border-color: var(--accent-o); color: var(--accent-o); background:#eaf1fb; }
+  .primary-btn {
+    margin-top: 14px;
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    background: var(--ink);
+    color: white;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  .primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .status {
+    text-align: center;
+    margin: 10px 0;
+    font-size: 15px;
+    min-height: 20px;
+  }
+  .board {
+    display: grid;
+    grid-template-columns: repeat(15, 1fr);
+    gap: 2px;
+    max-width: 100%;
+    margin: 0 auto;
+  }
+  .cell {
+    aspect-ratio: 1;
+    background: white;
+    border: 1px solid #d6dde5;
+    border-radius: 3px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    user-select: none;
+  }
+  .cell.x { color: var(--accent-x); }
+  .cell.o { color: var(--accent-o); }
+  .cell.win { background: #fff6c9; }
+  .cell:hover:not(.filled) { background: #f1f5f9; }
+  .footer-row {
+    display:flex;
+    justify-content: space-between;
+    align-items:center;
+    margin-top: 14px;
+    font-size: 13px;
+  }
+  .small-btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: white;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .room-tag {
+    font-size: 12px;
+    color: #6b7280;
+    text-align:center;
+    margin-top:6px;
+  }
+</style>
+<script>
+(function(){
+  const app = document.getElementById('app');
+  const BOARD_SIZE = 15;
+  const WIN_COUNT = 5;
+  let state = {
+    screen: 'setup', // setup | game
+    room: '',
+    mySymbol: null,
+    board: Array(BOARD_SIZE*BOARD_SIZE).fill(null),
+    turn: 'X',
+    winner: null,
+    winLine: [],
+    winCount: WIN_COUNT,
+    lastSynced: 0
+  };
+  let pollTimer = null;
+
+  function key(room){ return 'caro' + BOARD_SIZE + 'x' + BOARD_SIZE + ':' + room.trim().toLowerCase(); }
+
+  async function loadRoom(room){
+    try {
+      const res = await window.storage.get(key(room), true);
+      if (res && res.value) return JSON.parse(res.value);
+    } catch(e) { /* not found yet */ }
+    return null;
+  }
+
+  async function saveRoom(room, data){
+    try {
+      await window.storage.set(key(room), JSON.stringify(data), true);
+    } catch(e) { console.error('save failed', e); }
+  }
+
+  function freshGame(winCount){
+    return { board: Array(BOARD_SIZE*BOARD_SIZE).fill(null), turn: 'X', winner: null, winLine: [], winCount: winCount || WIN_COUNT };
+  }
+
+  function checkWinner(board, winCount){
+    const n = BOARD_SIZE;
+    const lines = [];
+    // rows & cols
+    for (let r=0;r<n;r++){
+      for (let c=0;c<=n-winCount;c++){
+        lines.push([...Array(winCount)].map((_,i)=> r*n + c+i));
+      }
+    }
+    for (let c=0;c<n;c++){
+      for (let r=0;r<=n-winCount;r++){
+        lines.push([...Array(winCount)].map((_,i)=> (r+i)*n + c));
+      }
+    }
+    // diagonals
+    for (let r=0;r<=n-winCount;r++){
+      for (let c=0;c<=n-winCount;c++){
+        lines.push([...Array(winCount)].map((_,i)=> (r+i)*n + (c+i)));
+        lines.push([...Array(winCount)].map((_,i)=> (r+i)*n + (c+winCount-1-i)));
+      }
+    }
+    for (const line of lines){
+      const vals = line.map(i=>board[i]);
+      if (vals[0] && vals.every(v=>v===vals[0])){
+        return { winner: vals[0], line };
+      }
+    }
+    if (board.every(v=>v)) return { winner: 'draw', line: [] };
+    return null;
+  }
+
+  async function pollLoop(){
+    if (state.screen !== 'game') return;
+    const data = await loadRoom(state.room);
+    if (data){
+      state.board = data.board;
+      state.turn = data.turn;
+      state.winner = data.winner;
+      state.winLine = data.winLine || [];
+      state.winCount = data.winCount || 3;
+      render();
+    }
+  }
+
+  function startPolling(){
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(pollLoop, 1800);
+  }
+
+  async function handleCellClick(idx){
+    if (state.winner) return;
+    if (state.board[idx]) return;
+    if (state.turn !== state.mySymbol) return;
+    const newBoard = state.board.slice();
+    newBoard[idx] = state.mySymbol;
+    const result = checkWinner(newBoard, state.winCount);
+    const newData = {
+      board: newBoard,
+      turn: state.mySymbol === 'X' ? 'O' : 'X',
+      winner: result ? result.winner : null,
+      winLine: result ? result.line : [],
+      winCount: state.winCount
+    };
+    state.board = newBoard;
+    state.turn = newData.turn;
+    state.winner = newData.winner;
+    state.winLine = newData.winLine;
+    render();
+    await saveRoom(state.room, newData);
+  }
+
+  async function resetGame(){
+    const data = freshGame(state.winCount);
+    state.board = data.board;
+    state.turn = data.turn;
+    state.winner = data.winner;
+    state.winLine = data.winLine;
+    render();
+    await saveRoom(state.room, data);
+  }
+
+  async function joinRoom(){
+    if (!state.room.trim() || !state.mySymbol) return;
+    let data = await loadRoom(state.room);
+    if (!data){
+      data = freshGame(WIN_COUNT);
+      await saveRoom(state.room, data);
+    }
+    state.board = data.board;
+    state.turn = data.turn;
+    state.winner = data.winner;
+    state.winLine = data.winLine || [];
+    state.winCount = data.winCount || 3;
+    state.screen = 'game';
+    render();
+    startPolling();
+  }
+
+  function leaveRoom(){
+    if (pollTimer) clearInterval(pollTimer);
+    state.screen = 'setup';
+    render();
+  }
+
+  function render(){
+    if (state.screen === 'setup'){
+      app.innerHTML = `
+        <div class="paper">
+          <h2>📓 Caro 15x15 ô ly</h2>
+          <div class="sub">Nhập chung một mã phòng để chơi với người ấy 💕</div>
+          <label>Mã phòng (2 người nhập giống nhau)</label>
+          <input type="text" id="roomInput" placeholder="vd: gauvabo123" value="${state.room}" />
+          <label>Bạn là quân gì?</label>
+          <div class="row">
+            <button class="symbol-btn x ${state.mySymbol==='X'?'selected':''}" id="pickX">X</button>
+            <button class="symbol-btn o ${state.mySymbol==='O'?'selected':''}" id="pickO">O</button>
+          </div>
+          <button class="primary-btn" id="joinBtn" ${(!state.mySymbol)?'disabled':''}>Vào phòng chơi</button>
+          <div class="room-tag">Nhớ chọn khác quân với người kia nha 😉</div>
+        </div>
+      `;
+      document.getElementById('roomInput').oninput = (e)=>{ state.room = e.target.value; };
+      document.getElementById('pickX').onclick = ()=>{ state.mySymbol='X'; render(); };
+      document.getElementById('pickO').onclick = ()=>{ state.mySymbol='O'; render(); };
+      document.getElementById('joinBtn').onclick = joinRoom;
+      return;
+    }
+
+    // game screen
+    let statusText = '';
+    if (state.winner === 'draw') statusText = '🤝 Hòa rồi!';
+    else if (state.winner) statusText = (state.winner === state.mySymbol) ? '🎉 Bạn thắng rồi!' : `😢 ${state.winner} thắng!`;
+    else statusText = (state.turn === state.mySymbol) ? '👉 Lượt của bạn' : `⏳ Đang chờ đối phương (${state.turn})`;
+
+    const cellsHtml = state.board.map((v, i) => {
+      const isWin = state.winLine.includes(i);
+      return `<div class="cell ${v ? v.toLowerCase() : ''} ${v?'filled':''} ${isWin?'win':''}" data-idx="${i}">${v || ''}</div>`;
+    }).join('');
+
+    app.innerHTML = `
+      <div class="paper">
+        <h2>📓 Caro 15x15 ô ly</h2>
+        <div class="sub">Phòng: <b>${state.room}</b> — bạn là <b>${state.mySymbol}</b></div>
+        <div class="status">${statusText}</div>
+        <div class="board">${cellsHtml}</div>
+        <div class="footer-row">
+          <button class="small-btn" id="leaveBtn">⬅ Đổi phòng</button>
+          <button class="small-btn" id="resetBtn">🔄 Ván mới</button>
+        </div>
+        <div class="room-tag">Thắng khi có ${state.winCount} quân liên tiếp (ngang/dọc/chéo)</div>
+      </div>
+    `;
+    state.board.forEach((_, i) => {
+      const el = app.querySelector(`.cell[data-idx="${i}"]`);
+      el.onclick = () => handleCellClick(i);
+    });
+    document.getElementById('leaveBtn').onclick = leaveRoom;
+    document.getElementById('resetBtn').onclick = resetGame;
+  }
+
+  render();
+})();
+</script>
