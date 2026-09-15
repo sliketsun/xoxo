@@ -216,7 +216,7 @@ const db = firebase.database();
             <button class="symbol-btn o ${state.mySymbol==='O'?'selected':''}" id="pickO">O</button>
           </div>
           <button class="primary-btn" id="joinBtn" ${(!state.mySymbol)?'disabled':''}>Vào phòng chơi</button>
-          <div class="room-tag">Nhớ chọn khác quân với người kia nha 😉</div>
+          <div class="room-tag">Nhớ chọn khác quân với trâm nha 😉</div>
         </div>
       `;
       document.getElementById('roomInput').oninput = (e)=>{ state.room = e.target.value; };
