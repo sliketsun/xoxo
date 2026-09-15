@@ -29,24 +29,12 @@
   }
   #app * { box-sizing: border-box; }
   .paper {
-    background:
-      repeating-linear-gradient(var(--paper), var(--paper) 15px, var(--line-blue) 16px),
-      repeating-linear-gradient(90deg, var(--paper), var(--paper) 15px, var(--line-blue) 16px),
-      var(--paper);
+    background: var(--paper);
     border-radius: 10px;
-    padding: 20px 20px 20px 30px;
+    padding: 20px;
     position: relative;
     box-shadow: 0 4px 14px rgba(0,0,0,0.12);
     border: 1px solid #e5ded0;
-  }
-  .paper::before {
-    content: "";
-    position: absolute;
-    left: 22px;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: var(--line-red);
   }
   h2 { margin: 0 0 4px 0; font-size: 20px; text-align: center; }
   .sub { text-align: center; font-size: 13px; color: #6b7280; margin-bottom: 14px; }
@@ -207,7 +195,7 @@ const db = firebase.database();
       app.innerHTML = `
         <div class="paper">
           <h2>📓 Caro 15x15 ô ly</h2>
-          <div class="sub">Nhập chung một mã phòng để chơi với trâm 💕</div>
+          <div class="sub">Nhập chung một mã phòng để chơi với người ấy 💕</div>
           <label>Mã phòng (2 người nhập giống nhau)</label>
           <input type="text" id="roomInput" placeholder="vd: gauvabo123" value="${state.room}" />
           <label>Bạn là quân gì?</label>
@@ -216,7 +204,7 @@ const db = firebase.database();
             <button class="symbol-btn o ${state.mySymbol==='O'?'selected':''}" id="pickO">O</button>
           </div>
           <button class="primary-btn" id="joinBtn" ${(!state.mySymbol)?'disabled':''}>Vào phòng chơi</button>
-          <div class="room-tag">Nhớ chọn khác quân với trâm nha 😉</div>
+          <div class="room-tag">Nhớ chọn khác quân với người kia nha 😉</div>
         </div>
       `;
       document.getElementById('roomInput').oninput = (e)=>{ state.room = e.target.value; };
